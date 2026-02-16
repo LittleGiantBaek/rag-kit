@@ -1,0 +1,340 @@
+project:
+  name: rag-kit
+  version: 0.1.0
+  description: 범용 코드베이스 & 문서 RAG CLI 도구
+  repository: https://github.com/LittleGiantBaek/rag-kit
+  license: MIT
+
+core_values:
+  - name: 로컬 우선
+    description: 기본값은 Ollama — 인터넷 없이 동작, API 키 불필요
+  - name: 프로젝트 격리
+    description: .rag-kit/ 디렉토리로 설정/데이터/캐시 완전 분리
+  - name: 인터페이스 독립
+    description: 서비스 레이어를 통해 CLI·REST·MCP 모두 동일 로직 재사용
+  - name: 확장 가능
+    description: 프로바이더 패턴으로 임베딩/LLM/벡터DB 교체 가능
+
+tech_stack:
+  runtime: Node.js 20+
+  package_manager: bun
+  language: TypeScript (ES2022, strict mode)
+  vector_db: LanceDB (embedded, file-based)
+  cli_framework: Commander.js
+  schema_validation: Zod
+  data_schema: Apache Arrow
+  document_parsers:
+    - pdf-parse (PDF)
+    - xlsx (Excel)
+    - markdown-parser (Markdown/Text)
+  embedding_providers:
+    - name: ollama
+      model: nomic-embed-text
+      dimensions: 768
+      local: true
+    - name: openai
+      model: text-embedding-3-small
+      local: false
+  llm_providers:
+    - name: ollama
+      model: qwen2.5-coder:7b
+      local: true
+    - name: openai
+      model: gpt-4o-mini
+      local: false
+    - name: anthropic
+      model: claude-sonnet-4-5-20250929
+      local: false
+
+architecture:
+  layers:
+    - name: Interface Layer
+      description: 사용자 접점 (CLI, REST, MCP)
+      modules:
+        - path: src/cli/
+          description: Commander.js 기반 CLI 커맨드
+          files:
+            - index.ts
+            - commands/init-command.ts
+            - commands/index-command.ts
+            - commands/ask-command.ts
+            - commands/chat-command.ts
+            - commands/config-command.ts
+
+    - name: Service Layer
+      description: 인터페이스 독립 비즈니스 로직
+      modules:
+        - path: src/services/
+          description: CLI/REST/MCP 공통 서비스
+          files:
+            - query-service.ts
+            - index-service.ts
+            - chat-service.ts
+            - index.ts
+
+    - name: Domain Modules
+      description: 핵심 도메인 로직
+      modules:
+        - path: src/config/
+          description: 프로젝트 경로 탐색, 설정 스키마, 기본값, CRUD
+          files:
+            - project-paths.ts
+            - config-schema.ts
+            - defaults.ts
+            - config-manager.ts
+
+        - path: src/embedding/
+          description: 임베딩 프로바이더 (Ollama, OpenAI)
+          files:
+            - embedding-provider.ts
+            - ollama-embedder.ts
+            - openai-embedder.ts
+            - batch-embedder.ts
+
+        - path: src/ingestion/
+          description: 파일 스캔, 청킹, 문서 파싱
+          files:
+            - file-scanner.ts
+            - chunker.ts
+            - code-parser.ts
+            - document-scanner.ts
+            - document-chunker.ts
+            - document-converter.ts
+            - pdf-parser.ts
+            - excel-parser.ts
+            - markdown-parser.ts
+            - metadata-extractor.ts
+            - nestjs-analyzer.ts
+
+        - path: src/retrieval/
+          description: 하이브리드 검색, 리랭킹, 컨텍스트 확장
+          files:
+            - retriever.ts
+            - hybrid-searcher.ts
+            - semantic-search.ts
+            - keyword-search.ts
+            - query-analyzer.ts
+            - reranker.ts
+            - context-expander.ts
+
+        - path: src/generation/
+          description: LLM 프로바이더, 프롬프트 빌더, 컨텍스트 조합
+          files:
+            - llm-provider.ts
+            - ollama-llm.ts
+            - openai-llm.ts
+            - anthropic-llm.ts
+            - prompt-templates.ts
+            - context-assembler.ts
+
+        - path: src/vectorstore/
+          description: LanceDB 추상화 레이어
+          files:
+            - lance-store.ts
+            - index-manager.ts
+            - schema.ts
+
+        - path: src/types/
+          description: 공통 타입 정의
+          files:
+            - config.ts
+            - chunk.ts
+            - metadata.ts
+            - profile.ts
+
+  data_flow:
+    init:
+      - "사용자 → init <path>"
+      - "resolveProjectPaths(targetPath)"
+      - ".rag-kit/ 디렉토리 생성 (config.json, data/, cache/)"
+      - "서비스 자동 감지 → config 저장"
+
+    index:
+      - "대상 경로 → FileScanner (글로브 패턴)"
+      - "Chunker (파일 요약 + 사이즈 기반 분할)"
+      - "EmbeddingProvider (벡터화, 배치 처리)"
+      - "IndexManager → VectorStore (LanceDB 저장)"
+
+    ask_chat:
+      - "질문 → QueryAnalyzer (의도, 서비스/파일타입 필터)"
+      - "HybridSearcher (벡터 + 키워드)"
+      - "Reranker (결과 재정렬)"
+      - "ContextExpander (인접 청크 확장)"
+      - "ContextAssembler (토큰 제한 내 컨텍스트 조합)"
+      - "LLM → 스트리밍 답변"
+
+config_model:
+  location: "<project_root>/.rag-kit/config.json"
+  discovery: "CWD에서 상위로 올라가며 .rag-kit/ 탐색 (git 방식)"
+  schema:
+    project:
+      name: string
+      description: string
+    profile: "code | document | hybrid"
+    llm:
+      provider: "ollama | openai | anthropic"
+      model: string
+      baseUrl: "string (optional)"
+      apiKey: "string (optional)"
+      temperature: "number (optional, 0-2)"
+      maxTokens: "number (optional)"
+    embedding:
+      provider: "ollama | openai"
+      model: string
+      dimensions: number
+      baseUrl: "string (optional)"
+      apiKey: "string (optional)"
+    cloud:
+      llm: "(LlmConfig, optional)"
+    index:
+      targetPath: string
+      services: "ServiceConfig[]"
+      includePatterns: "string[]"
+      excludePatterns: "string[]"
+      chunkSize: number
+      chunkOverlap: number
+    prompts:
+      systemContext: string
+      answerGuidelines: "string[]"
+
+profiles:
+  code:
+    include_patterns:
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.py"
+      - "**/*.go"
+      - "**/*.java"
+      - "**/*.rs"
+    chunk_size: 1500
+
+  document:
+    include_patterns:
+      - "**/*.pdf"
+      - "**/*.md"
+      - "**/*.txt"
+      - "**/*.xlsx"
+      - "**/*.xls"
+      - "**/*.csv"
+    chunk_size: 2000
+
+  hybrid:
+    include_patterns: "code + document 합집합"
+    chunk_size: 1500
+
+roadmap:
+  - phase: 0
+    name: 초기 구현
+    status: completed
+    items:
+      - CLI 도구 기본 구조 (init, index, ask, chat, config)
+      - Ollama/OpenAI/Anthropic 프로바이더
+      - LanceDB 벡터 저장소
+      - 코드/문서 인덱싱 파이프라인
+      - 하이브리드 검색 + 리랭킹
+      - 프로필 시스템 (code, document, hybrid)
+
+  - phase: 1
+    name: 프로젝트 로컬 설정 + 서비스 레이어
+    status: completed
+    items:
+      - 글로벌 설정 → 프로젝트별 .rag-kit/ 로컬 설정
+      - ProjectPaths 인터페이스 (git 방식 탐색)
+      - LanceStore → VectorStore 리네이밍
+      - 서비스 레이어 추출 (QueryService, IndexService, ChatService)
+      - CLI 커맨드 간소화 (서비스 위임)
+
+  - phase: 2
+    name: 테스트 + 품질
+    status: planned
+    items:
+      - 단위 테스트 (config, chunker, retriever 등)
+      - 통합 테스트 (인덱싱 → 검색 파이프라인)
+      - E2E 테스트 (CLI 커맨드)
+      - 커버리지 80%+ 달성
+      - ESLint 설정 및 CI 연동
+
+  - phase: 3
+    name: 고급 인덱싱
+    status: planned
+    items:
+      - AST 기반 코드 청킹 (함수/클래스 단위)
+      - 증분 인덱싱 (변경된 파일만)
+      - 임베딩 캐시 (cacheDir 활용)
+      - 멀티 언어 코드 파서 확장
+
+  - phase: 4
+    name: 서버 인터페이스
+    status: planned
+    items:
+      - REST API 서버 (Hono 또는 Express)
+      - MCP (Model Context Protocol) 서버
+      - 서비스 레이어 재사용 검증
+      - 웹 UI (선택적)
+
+  - phase: 5
+    name: 고급 검색
+    status: planned
+    items:
+      - GraphRAG (코드 의존성 그래프)
+      - 멀티모달 (이미지/다이어그램)
+      - 대화 맥락 기반 검색 개선
+      - 커스텀 리랭킹 모델
+
+design_principles:
+  - name: 불변성
+    rule: 모든 인터페이스 프로퍼티는 readonly, 객체 변경 대신 새 객체 생성
+
+  - name: 팩토리 패턴
+    rule: createXxx() 함수로 인스턴스 생성, 클래스 대신 인터페이스 + 팩토리
+
+  - name: 프로바이더 추상화
+    rule: 임베딩/LLM/벡터DB를 인터페이스로 추상화, 구현체 교체 가능
+
+  - name: 경로와 로직 분리
+    rule: ProjectPaths가 경로 제공, AppConfig는 비즈니스 설정만 보유
+
+  - name: 인터페이스 독립 서비스
+    rule: CLI는 UI만, 비즈니스 로직은 서비스 레이어에 집중
+
+  - name: 콜백 기반 진행률
+    rule: 서비스가 진행률을 콜백으로 알리고, UI 레이어가 표시 방법 결정
+
+cli_commands:
+  - command: "init <path>"
+    description: 대상 코드베이스 초기화 (.rag-kit/ 생성)
+    options:
+      - "-p, --profile <type>: 프로필 (code, document, hybrid) [기본: code]"
+      - "-n, --name <name>: 프로젝트 이름"
+      - "-d, --description <desc>: 프로젝트 설명"
+
+  - command: index
+    description: 코드베이스/문서 인덱싱
+    options:
+      - "-s, --service <name>: 특정 서비스만 인덱싱"
+      - "--docs <path>: 외부 문서 인덱싱"
+      - "--clear: 기존 인덱스 삭제 후 재인덱싱"
+
+  - command: "ask <question>"
+    description: 단발 질문
+    options:
+      - "-n, --results <number>: 검색 결과 수 [기본: 6]"
+      - "--no-stream: 스트리밍 비활성화"
+      - "--cloud: 클라우드 LLM 사용"
+
+  - command: chat
+    description: 대화형 질의 (REPL)
+    options:
+      - "-n, --results <number>: 검색 결과 수 [기본: 6]"
+      - "--cloud: 클라우드 LLM 사용"
+
+  - command: "config show"
+    description: 현재 설정 표시
+
+  - command: "config get <path>"
+    description: "특정 설정값 조회 (예: llm.model)"
+
+  - command: "config set <path> <value>"
+    description: "설정값 변경 (예: llm.model gpt-4o-mini)"
