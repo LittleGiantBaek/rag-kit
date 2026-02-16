@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+*.lance/
+.rag-kit/
+.env
+*.log
+.DS_Store
+bun.lockb
