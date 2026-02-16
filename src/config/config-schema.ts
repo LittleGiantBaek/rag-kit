@@ -59,8 +59,6 @@ export const appConfigSchema = z.object({
   cloud: cloudProviderConfigSchema.optional(),
   index: indexConfigSchema,
   prompts: promptsConfigSchema,
-  dataDir: z.string().min(1),
-  cacheDir: z.string().min(1),
 })
 
 export type ValidatedAppConfig = z.infer<typeof appConfigSchema>

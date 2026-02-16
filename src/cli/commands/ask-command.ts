@@ -2,12 +2,8 @@ import type { Command } from 'commander'
 import ora from 'ora'
 import chalk from 'chalk'
 import { loadConfig } from '../../config/config-manager.js'
-import { createEmbeddingProvider } from '../../embedding/embedding-provider.js'
-import { createIndexManager } from '../../vectorstore/index-manager.js'
-import { createRetriever } from '../../retrieval/retriever.js'
-import { createContextAssembler } from '../../generation/context-assembler.js'
-import { createLlmProvider } from '../../generation/llm-provider.js'
-import { buildSystemPrompt, buildRagPrompt } from '../../generation/prompt-templates.js'
+import { getProjectPaths } from '../../config/project-paths.js'
+import { createQueryService } from '../../services/query-service.js'
 
 export function registerAskCommand(program: Command): void {
   program
@@ -21,24 +17,13 @@ export function registerAskCommand(program: Command): void {
       const spinner = ora()
 
       try {
-        const config = await loadConfig()
-
-        const llmConfig = options.cloud
-          ? (() => {
-              if (!config.cloud?.llm) {
-                throw new Error('클라우드 LLM 프로바이더가 설정되지 않았습니다. "rag-kit config set cloud.llm.provider openai" 등으로 설정하세요.')
-              }
-              return config.cloud.llm
-            })()
-          : config.llm
+        const paths = getProjectPaths()
+        const config = await loadConfig(paths)
+        const queryService = await createQueryService(config, paths, { useCloud: options.cloud ?? false })
 
         spinner.start('검색 중...')
-        const embedder = createEmbeddingProvider(config.embedding)
-        const indexMgr = await createIndexManager(config.dataDir)
-        const retriever = createRetriever(embedder, indexMgr, config.index.services)
-
         const limit = parseInt(options.results, 10)
-        const results = await retriever.retrieve(question, limit)
+        const { results, contexts } = await queryService.retrieve(question, limit)
         spinner.succeed(`${results.length}개 관련 코드 발견`)
 
         if (results.length === 0) {
@@ -54,26 +39,19 @@ export function registerAskCommand(program: Command): void {
         }
         console.info('')
 
-        const assembler = createContextAssembler()
-        const contexts = assembler.assemble(results)
-        const ragPrompt = buildRagPrompt(question, contexts, config)
-        const systemPrompt = buildSystemPrompt(config)
-
-        const llm = createLlmProvider(llmConfig)
-
         if (options.cloud) {
-          console.info(chalk.dim(`[${llm.name}]`))
+          console.info(chalk.dim(`[${queryService.llmName}]`))
         }
 
         if (options.stream) {
-          const stream = llm.generateStream(ragPrompt, systemPrompt)
+          const stream = queryService.generateStream(question, contexts)
           for await (const chunk of stream) {
             process.stdout.write(chunk)
           }
           process.stdout.write('\n')
         } else {
           spinner.start('답변 생성 중...')
-          const answer = await llm.generate(ragPrompt, systemPrompt)
+          const answer = await queryService.generate(question, contexts)
           spinner.stop()
           console.info(answer)
         }

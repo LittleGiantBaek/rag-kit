@@ -1,10 +1,10 @@
 import { resolve, basename, join } from 'node:path'
-import { readFile, readdir, stat } from 'node:fs/promises'
+import { readFile, readdir, stat, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import type { Command } from 'commander'
 import chalk from 'chalk'
 import { saveConfig } from '../../config/config-manager.js'
-import { CONFIG_FILE_PATH } from '../../config/defaults.js'
+import { resolveProjectPaths } from '../../config/project-paths.js'
 import type { ServiceConfig, ProfileType } from '../../types/config.js'
 import { PROFILE_PRESETS } from '../../types/profile.js'
 
@@ -104,6 +104,15 @@ export function registerInitCommand(program: Command): void {
           process.exit(1)
         }
 
+        const paths = resolveProjectPaths(targetPath)
+
+        if (!existsSync(paths.dataDir)) {
+          await mkdir(paths.dataDir, { recursive: true })
+        }
+        if (!existsSync(paths.cacheDir)) {
+          await mkdir(paths.cacheDir, { recursive: true })
+        }
+
         const detectedServices = await scanServices(targetPath)
         const services: readonly ServiceConfig[] = detectedServices.map(s => ({
           name: s.name,
@@ -115,7 +124,7 @@ export function registerInitCommand(program: Command): void {
         const projectName = options.name ?? basename(targetPath)
         const projectDescription = options.description ?? ''
 
-        await saveConfig({
+        await saveConfig(paths, {
           project: {
             name: projectName,
             description: projectDescription,
@@ -145,7 +154,7 @@ export function registerInitCommand(program: Command): void {
           console.info(`감지된 서비스: ${chalk.yellow('없음 (전체 경로 스캔 모드)')}`)
         }
 
-        console.info(`설정 파일: ${chalk.dim(CONFIG_FILE_PATH)}`)
+        console.info(`설정 파일: ${chalk.dim(paths.configFile)}`)
         console.info(chalk.dim('\n다음 단계: rag-kit index'))
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

@@ -57,6 +57,4 @@ export interface AppConfig {
   readonly cloud?: CloudProviderConfig
   readonly index: IndexConfig
   readonly prompts: PromptsConfig
-  readonly dataDir: string
-  readonly cacheDir: string
 }

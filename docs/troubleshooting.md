@@ -44,8 +44,8 @@ rag-kit index --clear  # 기존 인덱스 삭제 후 재인덱싱
 ### 테이블 손상
 
 ```bash
-# 데이터 디렉토리 삭제 후 재인덱싱
-rm -rf ~/.rag-kit/data
+# 프로젝트 내 데이터 디렉토리 삭제 후 재인덱싱
+rm -rf .rag-kit/data
 rag-kit index
 ```
 
@@ -102,8 +102,44 @@ rag-kit index --service api
 rag-kit index --service front
 ```
 
+## 프로젝트 탐색
+
+### "프로젝트를 찾을 수 없습니다" 에러
+
+rag-kit은 현재 디렉토리에서 상위로 올라가며 `.rag-kit/` 디렉토리를 찾습니다. 프로젝트가 초기화되지 않았거나, 프로젝트 디렉토리 밖에서 실행한 경우 이 에러가 발생합니다.
+
+```bash
+# 프로젝트 초기화
+rag-kit init ~/my-project --profile code --name "MyProject"
+
+# 프로젝트 디렉토리 내에서 실행
+cd ~/my-project
+rag-kit config show
+```
+
 ## 설정 초기화
 
 ```bash
+# 프로젝트 내 설정 초기화
+rm -rf .rag-kit/
+rag-kit init . --profile code --name "MyProject"
+```
+
+## 레거시 글로벌 설정 마이그레이션
+
+이전 버전에서 `~/.rag-kit/`에 글로벌 설정을 사용했다면, 프로젝트별 설정으로 마이그레이션하세요:
+
+```bash
+# 1. 기존 프로젝트를 다시 초기화
+rag-kit init ~/my-project --profile code --name "MyProject"
+
+# 2. 기존 설정값 복사 (필요한 경우)
+rag-kit config set llm.model <기존 모델>
+rag-kit config set cloud.llm.apiKey <기존 API 키>
+
+# 3. 인덱스 재생성
+rag-kit index
+
+# 4. 글로벌 설정 삭제
 rm -rf ~/.rag-kit
 ```

@@ -1,8 +1,4 @@
 import type { AppConfig } from '../types/config.js'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-
-const home = homedir()
 
 export const DEFAULT_CONFIG: AppConfig = {
   project: {
@@ -57,8 +53,4 @@ export const DEFAULT_CONFIG: AppConfig = {
       '제공된 컨텍스트가 부족하면 부족한 정보를 명시하세요.',
     ],
   },
-  dataDir: join(home, '.rag-kit', 'data'),
-  cacheDir: join(home, '.rag-kit', 'cache'),
 }
-
-export const CONFIG_FILE_PATH = join(home, '.rag-kit', 'config.json')

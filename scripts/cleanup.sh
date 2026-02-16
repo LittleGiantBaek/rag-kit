@@ -3,10 +3,18 @@
 
 echo "=== rag-kit 클린업 ==="
 
-# 1. 사용자 설정 및 캐시 삭제
+# 1. 프로젝트 로컬 설정 삭제 안내
+echo "[1/4] 프로젝트별 설정은 각 프로젝트의 .rag-kit/ 디렉토리에 있습니다."
+echo "      삭제하려면: rm -rf <프로젝트경로>/.rag-kit/"
+
+# 레거시 글로벌 설정 삭제
 if [ -d "$HOME/.rag-kit" ]; then
-  echo "[1/4] 사용자 설정 삭제: ~/.rag-kit/"
-  rm -rf "$HOME/.rag-kit"
+  echo "      레거시 글로벌 설정 발견: ~/.rag-kit/"
+  read -p "      레거시 글로벌 설정을 삭제할까요? (y/N): " del_legacy
+  if [ "$del_legacy" = "y" ]; then
+    rm -rf "$HOME/.rag-kit"
+    echo "      레거시 글로벌 설정 삭제 완료"
+  fi
 fi
 
 # 2. 전역 CLI 심볼릭 링크 삭제

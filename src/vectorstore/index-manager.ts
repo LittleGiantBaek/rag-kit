@@ -1,4 +1,4 @@
-import { createLanceStore, type LanceStore } from './lance-store.js'
+import { createVectorStore, type VectorStore } from './lance-store.js'
 import { type VectorRecord } from './schema.js'
 
 const DEFAULT_CODE_TABLE = 'code_chunks'
@@ -65,7 +65,7 @@ function escapeSQL(value: string): string {
 }
 
 async function clearAllTables(
-  store: LanceStore,
+  store: VectorStore,
   codeTable: string,
   documentsTable: string,
 ): Promise<void> {
@@ -74,14 +74,14 @@ async function clearAllTables(
 }
 
 async function clearSingleTable(
-  store: LanceStore,
+  store: VectorStore,
   tableName: string,
 ): Promise<void> {
   await store.deleteTable(tableName)
 }
 
 async function searchByProximity(
-  store: LanceStore,
+  store: VectorStore,
   codeTable: string,
   filePath: string,
   startLine: number,
@@ -111,7 +111,7 @@ export async function createIndexManager(
   dataDir: string,
   options?: IndexManagerOptions,
 ): Promise<IndexManager> {
-  const store = await createLanceStore(dataDir)
+  const store = await createVectorStore(dataDir)
   const codeTable = options?.codeTable ?? DEFAULT_CODE_TABLE
   const documentsTable = options?.documentsTable ?? DEFAULT_DOCUMENTS_TABLE
 

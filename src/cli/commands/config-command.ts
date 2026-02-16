@@ -1,7 +1,7 @@
 import type { Command } from 'commander'
 import chalk from 'chalk'
 import { loadConfig, getConfigValue, setConfigValue } from '../../config/config-manager.js'
-import { CONFIG_FILE_PATH } from '../../config/defaults.js'
+import { getProjectPaths } from '../../config/project-paths.js'
 
 export function registerConfigCommand(program: Command): void {
   const configCmd = program
@@ -13,10 +13,11 @@ export function registerConfigCommand(program: Command): void {
     .description('현재 설정 표시')
     .action(async () => {
       try {
-        const config = await loadConfig()
+        const paths = getProjectPaths()
+        const config = await loadConfig(paths)
         console.info(chalk.cyan('현재 설정:\n'))
         console.info(JSON.stringify(config, null, 2))
-        console.info(chalk.dim(`\n설정 파일: ${CONFIG_FILE_PATH}`))
+        console.info(chalk.dim(`\n설정 파일: ${paths.configFile}`))
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         console.error(chalk.red(`오류: ${message}`))
@@ -29,7 +30,8 @@ export function registerConfigCommand(program: Command): void {
     .description('특정 설정값 조회 (예: llm.model)')
     .action(async (path: string) => {
       try {
-        const value = await getConfigValue(path)
+        const paths = getProjectPaths()
+        const value = await getConfigValue(paths, path)
         if (value === undefined) {
           console.info(chalk.yellow(`설정값 없음: ${path}`))
         } else {
@@ -48,6 +50,7 @@ export function registerConfigCommand(program: Command): void {
     .description('설정값 변경 (예: llm.model gpt-4o-mini)')
     .action(async (path: string, value: string) => {
       try {
+        const paths = getProjectPaths()
         let parsed: unknown
         try {
           parsed = JSON.parse(value)
@@ -55,7 +58,7 @@ export function registerConfigCommand(program: Command): void {
           parsed = value
         }
 
-        await setConfigValue(path, parsed)
+        await setConfigValue(paths, path, parsed)
         console.info(chalk.green(`✓ ${path} = ${value}`))
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

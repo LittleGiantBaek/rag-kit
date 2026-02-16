@@ -2,7 +2,7 @@ import { connect, type Connection, type Table } from '@lancedb/lancedb'
 
 import { createTableSchema, type VectorRecord } from './schema.js'
 
-export interface LanceStore {
+export interface VectorStore {
   readonly addRecords: (
     tableName: string,
     records: readonly VectorRecord[],
@@ -112,9 +112,9 @@ async function countRecords(
   return table.countRows()
 }
 
-export async function createLanceStore(
+export async function createVectorStore(
   dataDir: string,
-): Promise<LanceStore> {
+): Promise<VectorStore> {
   const db = await connect(dataDir)
 
   return {
